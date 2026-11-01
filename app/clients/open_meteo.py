@@ -3,7 +3,8 @@ from typing import Any
 import httpx
 
 from app.config import Settings
-from app.schemas import Location
+from app.schemas import CurrentWeather, DailyForecast, Location, WeatherReport
+from app.weather_codes import describe
 
 
 class WeatherApiError(Exception):
@@ -39,3 +40,58 @@ class OpenMeteoClient:
         if not results:
             raise CityNotFoundError(f"City not found: {city}")
         return Location.model_validate(results[0])
+
+    async def forecast(self, location: Location, days: int = 7) -> WeatherReport:
+        data = await self._get(
+            self._settings.forecast_url,
+            {
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+                "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
+                "wind_speed_10m,weather_code",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
+                "timezone": location.timezone,
+                "forecast_days": days,
+            },
+        )
+        try:
+            return self._parse_forecast(location, data)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise WeatherApiError(f"Unexpected response format: {exc}") from exc
+
+    async def get_report(self, city: str, days: int = 7) -> WeatherReport:
+        location = await self.geocode(city)
+        return await self.forecast(location, days)
+
+    @staticmethod
+    def _parse_forecast(location: Location, data: dict[str, Any]) -> WeatherReport:
+        cur = data["current"]
+        current = CurrentWeather(
+            time=cur["time"],
+            temperature=cur["temperature_2m"],
+            apparent_temperature=cur["apparent_temperature"],
+            humidity=cur["relative_humidity_2m"],
+            wind_speed=cur["wind_speed_10m"],
+            weather_code=cur["weather_code"],
+            description=describe(cur["weather_code"]),
+        )
+        d = data["daily"]
+        daily = [
+            DailyForecast(
+                day=day,
+                temp_max=t_max,
+                temp_min=t_min,
+                precipitation=rain,
+                weather_code=code,
+                description=describe(code),
+            )
+            for day, t_max, t_min, rain, code in zip(
+                d["time"],
+                d["temperature_2m_max"],
+                d["temperature_2m_min"],
+                d["precipitation_sum"],
+                d["weather_code"],
+                strict=True,
+            )
+        ]
+        return WeatherReport(location=location, current=current, daily=daily)
