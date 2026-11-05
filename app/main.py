@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.clients.open_meteo import OpenMeteoClient
 from app.config import get_settings
 from app.database import init_db
-from app.routers import weather
+from app.routers import favorites, weather
 
 settings = get_settings()
 
@@ -21,6 +21,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.include_router(weather.router)
+app.include_router(favorites.router)
 
 
 @app.get("/health", tags=["system"])

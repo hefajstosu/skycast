@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Location(BaseModel):
@@ -34,3 +34,23 @@ class WeatherReport(BaseModel):
     location: Location
     current: CurrentWeather
     daily: list[DailyForecast]
+
+
+class FavoriteCreate(BaseModel):
+    city: str = Field(min_length=1, max_length=100)
+    note: str | None = Field(default=None, max_length=200)
+
+
+class FavoriteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    city: str
+    note: str | None
+    created_at: datetime
+
+
+class FavoriteWeather(BaseModel):
+    favorite: FavoriteRead
+    current: CurrentWeather | None
+    error: str | None = None
