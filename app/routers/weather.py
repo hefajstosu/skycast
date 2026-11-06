@@ -21,3 +21,8 @@ async def get_weather(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except WeatherApiError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.delete("/cache", status_code=204)
+def clear_cache(client: WeatherClient) -> None:
+    client.clear_cache()

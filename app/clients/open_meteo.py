@@ -2,6 +2,7 @@ from typing import Any
 
 import httpx
 
+from app.cache import TTLCache
 from app.config import Settings
 from app.schemas import CurrentWeather, DailyForecast, Location, WeatherReport
 from app.weather_codes import describe
@@ -19,6 +20,8 @@ class OpenMeteoClient:
     def __init__(self, settings: Settings, http: httpx.AsyncClient | None = None) -> None:
         self._settings = settings
         self._http = http or httpx.AsyncClient(timeout=settings.http_timeout)
+        self._locations: TTLCache[Location] = TTLCache(settings.cache_ttl_seconds)
+        self._reports: TTLCache[WeatherReport] = TTLCache(settings.cache_ttl_seconds)
 
     async def aclose(self) -> None:
         await self._http.aclose()
@@ -31,7 +34,14 @@ class OpenMeteoClient:
             raise WeatherApiError(f"Failed to connect to Open-Meteo: {exc}") from exc
         return response.json()
 
+    def clear_cache(self) -> None:
+        self._locations.clear()
+        self._reports.clear()
+
     async def geocode(self, city: str) -> Location:
+        key = city.strip().lower()
+        if cached := self._locations.get(key):
+            return cached
         data = await self._get(
             self._settings.geocoding_url,
             {"name": city, "count": 1, "language": self._settings.language, "format": "json"},
@@ -39,7 +49,9 @@ class OpenMeteoClient:
         results = data.get("results")
         if not results:
             raise CityNotFoundError(f"City not found: {city}")
-        return Location.model_validate(results[0])
+        location = Location.model_validate(results[0])
+        self._locations.set(key, location)
+        return location
 
     async def forecast(self, location: Location, days: int = 7) -> WeatherReport:
         data = await self._get(
@@ -60,8 +72,13 @@ class OpenMeteoClient:
             raise WeatherApiError(f"Unexpected response format: {exc}") from exc
 
     async def get_report(self, city: str, days: int = 7) -> WeatherReport:
+        key = (city.strip().lower(), days)
+        if cached := self._reports.get(key):
+            return cached
         location = await self.geocode(city)
-        return await self.forecast(location, days)
+        report = await self.forecast(location, days)
+        self._reports.set(key, report)
+        return report
 
     @staticmethod
     def _parse_forecast(location: Location, data: dict[str, Any]) -> WeatherReport:
