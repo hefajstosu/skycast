@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}{% if report %}Weather: {{ report.location.name }} · {% endif %}{{ app_name }}{% endblock %}
+
+{% block content %}
+<h1 class="visually-hidden">Weather forecast</h1>
+
+<form class="search" action="/" method="get" role="search">
+  <label for="city" class="prompt">$ weather --city</label>
+  <input id="city" name="city" type="search" placeholder="london"
+         value="{{ city }}" maxlength="100" required autocomplete="off" spellcheck="false">
+  <button type="submit">Search</button>
+</form>
+
+{% if error %}
+  <p class="alert" role="alert"><span class="alert-tag">ERR</span> {{ error }}</p>
+{% endif %}
+
+<div class="layout">
+  <section class="weather" aria-labelledby="weather-heading">
+    {% if report %}
+      {% set loc = report.location %}
+      {% set cur = report.current %}
+      <div class="panel">
+        <div class="panel-head">
+          <span>now</span>
+          <span>{{ cur.time.strftime("%Y-%m-%d %H:%M") }}</span>
+        </div>
+        <div class="panel-body">
+          <div class="current-head">
+            <div>
+              <h2 id="weather-heading">{{ loc.name }}</h2>
+              <p class="dim">{{ loc.country or "-" }} · {{ "%.2f" | format(loc.latitude) }}, {{ "%.2f" | format(loc.longitude) }}</p>
+            </div>
+            {% if loc.name in favorite_cities %}
+              <span class="tag">In favorites</span>
+            {% else %}
+              <button type="button" class="btn" data-add-favorite="{{ loc.name }}">+ Add to favorites</button>
+            {% endif %}
+          </div>
+
+          <p class="temp">{{ cur.temperature | round | int }}°C</p>
+          <p class="desc">{{ cur.description }}</p>
+
+          <dl class="stats">
+            <div><dt>feels like</dt><dd>{{ cur.apparent_temperature | round | int }}°C</dd></div>
+            <div><dt>humidity</dt><dd>{{ cur.humidity }}%</dd></div>
+            <div><dt>wind</dt><dd>{{ cur.wind_speed | round(1) }} km/h</dd></div>
+            <div><dt>WMO code</dt><dd>{{ cur.weather_code }}</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span>forecast</span>
+          <span>{{ report.daily | length }} days</span>
+        </div>
+        <table class="forecast">
+          <thead>
+            <tr>
+              <th scope="col">date</th>
+              <th scope="col">conditions</th>
+              <th scope="col" class="num">max</th>
+              <th scope="col" class="num">min</th>
+              <th scope="col" class="num">precip</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in report.daily %}
+              <tr>
+                <td class="date"><span class="dim">{{ ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][d.day.weekday()] }}</span> {{ d.day.strftime("%m-%d") }}</td>
+                <td>{{ d.description }}</td>
+                <td class="num hi">{{ d.temp_max | round | int }}°</td>
+                <td class="num">{{ d.temp_min | round | int }}°</td>
+                <td class="num">{{ d.precipitation | round(1) }} mm</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="panel">
+        <div class="panel-head"><span>start</span></div>
+        <div class="panel-body">
+          <h2 id="weather-heading">Check the weather</h2>
+          <p class="dim">Type a city name above or pick one of your favorites.</p>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  <aside class="panel favorites" aria-labelledby="fav-heading">
+    <div class="panel-head">
+      <h2 id="fav-heading">favorites</h2>
+      <span>{{ favorites | length }}</span>
+    </div>
+    {% if favorites %}
+      <ol>
+        {% for f in favorites %}
+          <li>
+            <span class="idx">{{ "%02d" | format(loop.index) }}</span>
+            <span class="fav-main">
+              <a href="/?city={{ f.city | urlencode }}">{{ f.city }}</a>
+              {% if f.note %}<small class="dim"># {{ f.note }}</small>{% endif %}
+            </span>
+            <button type="button" class="btn-x" data-delete-favorite="{{ f.id }}"
+                    aria-label="Remove {{ f.city }} from favorites">[x]</button>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="panel-body dim">No favorite cities yet.</p>
+    {% endif %}
+    <p class="alert hidden" id="fav-error" role="alert"></p>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const favError = document.getElementById("fav-error");
+
+  async function call(url, options) {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      favError.textContent = body.detail || "Something went wrong.";
+      favError.classList.remove("hidden");
+      return;
+    }
+    location.reload();
+  }
+
+  document.addEventListener("click", (e) => {
+    const add = e.target.closest("[data-add-favorite]");
+    if (add) {
+      call("/api/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city: add.dataset.addFavorite }),
+      });
+    }
+    const del = e.target.closest("[data-delete-favorite]");
+    if (del) {
+      call(`/api/favorites/${del.dataset.deleteFavorite}`, { method: "DELETE" });
+    }
+  });
+</script>
+{% endblock %}

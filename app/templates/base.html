@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}Current weather and a 7-day forecast for any city, with a list of favorite places.{% endblock %}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23111'/><rect x='3' y='11' width='10' height='2' fill='%23ffb000'/></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="/"><span class="dim">~/</span>skycast<span class="cursor" aria-hidden="true">_</span></a>
+      <nav aria-label="Main navigation">
+        <a href="/docs">/docs</a>
+        <a href="/api/favorites">/api</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span class="dim">#</span> data: <a href="https://open-meteo.com/">open-meteo.com</a> (CC BY 4.0)
+    </div>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
