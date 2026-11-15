@@ -1,3 +1,10 @@
+[project]
+name = "skycast"
+version = "0.1.0"
+description = "Weather app: current conditions and a 16-day forecast, with favorite cities."
+readme = "README.md"
+requires-python = ">=3.12"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
