@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -38,7 +39,7 @@ class WeatherReport(BaseModel):
 
 class FavoriteCreate(BaseModel):
     city: str = Field(min_length=1, max_length=100)
-    note: str | None = Field(default=None, max_length=200)
+    note: Optional[str] = Field(default=None, max_length=200)
 
 
 class FavoriteRead(BaseModel):

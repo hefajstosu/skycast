@@ -15,7 +15,9 @@ def _make_engine(url: str):
     if url.startswith("sqlite"):
         kwargs = {"connect_args": {"check_same_thread": False}}
         if url in ("sqlite://", "sqlite:///:memory:"):
-            # an in-memory database must share a single connection
+            # sqlite in-memory dbs are per-connection, so without StaticPool every
+            # session would open a fresh, empty database. The test suite relies on
+            # this to keep a single shared in-memory db across requests.
             kwargs["poolclass"] = StaticPool
         return create_engine(url, **kwargs)
     return create_engine(url)

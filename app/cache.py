@@ -24,6 +24,8 @@ class TTLCache(Generic[T]):
         return value
 
     def set(self, key: Hashable, value: T) -> None:
+        # TODO: this never evicts entries that aren't re-read, so it grows with
+        # every distinct city. Add a max size or a sweep if that matters.
         self._data[key] = (self._clock() + self._ttl, value)
 
     def clear(self) -> None:
