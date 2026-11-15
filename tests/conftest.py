@@ -27,7 +27,7 @@ GEO_KRAKOW = {
 
 FORECAST_KRAKOW = {
     "current": {
-        "time": "2026-11-17T12:00",
+        "time": "2026-11-15T12:00",
         "temperature_2m": 6.4,
         "apparent_temperature": 3.1,
         "relative_humidity_2m": 81,
@@ -35,7 +35,7 @@ FORECAST_KRAKOW = {
         "weather_code": 3,
     },
     "daily": {
-        "time": ["2026-11-17", "2026-11-18"],
+        "time": ["2026-11-15", "2026-11-16"],
         "weather_code": [3, 61],
         "temperature_2m_max": [7.0, 8.2],
         "temperature_2m_min": [1.5, 2.0],
