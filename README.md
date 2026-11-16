@@ -1,24 +1,19 @@
 # Skycast
 
-A Python web app that shows current weather and a forecast of up to 16 days for any
-city, and lets you save your favorite places. Data comes from the free
-[Open-Meteo](https://open-meteo.com/) API, which requires no API key.
+Weather for any city, right now and up to 16 days ahead, plus a list of
+favorite places. Built as a small FastAPI app on top of the free
+[Open-Meteo](https://open-meteo.com/) API — no API key needed, which is the
+whole reason I picked it.
 
 ## Stack
 
-| Role | Tool |
-|---|---|
-| Framework | [FastAPI](https://fastapi.tiangolo.com/) |
-| External API | Open-Meteo (geocoding + forecast) |
-| HTTP client | httpx (async) |
-| Validation / configuration | Pydantic, pydantic-settings |
-| Database | SQLAlchemy 2.0 + SQLite |
-| HTML templates | Jinja2 |
-| Tests | pytest + respx (httpx mocking) |
+FastAPI + SQLAlchemy (SQLite) + Jinja2, with httpx for the Open-Meteo calls and
+pydantic-settings for config. Tests use pytest and respx so they never hit the
+network.
 
 ## Running
 
-Requires Python 3.12+.
+Python 3.12 or newer.
 
 ```bash
 python3.12 -m venv .venv
@@ -28,7 +23,7 @@ uvicorn app.main:app --reload
 ```
 
 - app: http://127.0.0.1:8000
-- API docs (Swagger): http://127.0.0.1:8000/docs
+- swagger: http://127.0.0.1:8000/docs
 
 ### Docker
 
@@ -39,26 +34,23 @@ docker run -p 8000:8000 -v skycast-data:/data skycast
 
 ## Configuration
 
-Environment variables prefixed with `SKYCAST_` (or a `.env` file, see `.env.example`):
+Everything is set through env vars prefixed with `SKYCAST_` (or a `.env` file,
+see `.env.example`):
 
-| Variable | Default | Description |
-|---|---|---|
-| `SKYCAST_DATABASE_URL` | `sqlite:///./skycast.db` | database URL |
-| `SKYCAST_CACHE_TTL_SECONDS` | `600` | API response cache lifetime |
-| `SKYCAST_LANGUAGE` | `en` | language of city names |
-| `SKYCAST_HTTP_TIMEOUT` | `10` | Open-Meteo request timeout (s) |
+- `SKYCAST_DATABASE_URL` — database URL (default `sqlite:///./skycast.db`)
+- `SKYCAST_CACHE_TTL_SECONDS` — how long API responses stay cached (default `600`)
+- `SKYCAST_LANGUAGE` — language of city names from geocoding (default `en`)
+- `SKYCAST_HTTP_TIMEOUT` — Open-Meteo request timeout in seconds (default `10`)
 
-## API endpoints
+## API
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/weather?city=London&days=7` | current weather + forecast |
-| DELETE | `/api/weather/cache` | clear the cache |
-| GET | `/api/favorites` | list favorite cities |
-| POST | `/api/favorites` | add a city `{"city": "...", "note": "..."}` |
-| DELETE | `/api/favorites/{id}` | remove a city |
-| GET | `/api/favorites/weather` | current weather for all favorites |
-| GET | `/health` | health check |
+- `GET /api/weather?city=London&days=7` — current weather + forecast
+- `DELETE /api/weather/cache` — clear the response cache
+- `GET /api/favorites` — list favorite cities
+- `POST /api/favorites` — add a city (`{"city": "...", "note": "..."}`)
+- `DELETE /api/favorites/{id}` — remove a city
+- `GET /api/favorites/weather` — current weather for every favorite
+- `GET /health` — health check
 
 ## Tests
 
@@ -66,20 +58,28 @@ Environment variables prefixed with `SKYCAST_` (or a `.env` file, see `.env.exam
 pytest
 ```
 
-Tests never hit the network: Open-Meteo responses are mocked with respx
-and the database runs in memory.
+Open-Meteo is mocked with respx and the database runs in memory, so the suite
+doesn't need internet access.
+
+## Known quirks
+
+- The response cache is a plain in-memory dict with a TTL and never evicts
+  entries that aren't re-read. Fine at this scale, but it'd grow without bound
+  under real traffic — there's a TODO in `app/cache.py`.
+- Favorite weather is fetched one city at a time (`asyncio.gather`), not batched
+  by coordinates.
 
 ## Structure
 
 ```
 app/
-├── main.py              # FastAPI app, lifespan, routers
-├── config.py            # settings (pydantic-settings)
-├── clients/open_meteo.py# API client with caching
+├── main.py              # app setup, lifespan, routers
+├── config.py            # settings
+├── clients/open_meteo.py# API client + caching
 ├── cache.py             # TTL cache
 ├── database.py, models.py
-├── schemas.py           # Pydantic models
-├── weather_codes.py     # WMO weather code descriptions
+├── schemas.py           # pydantic models
+├── weather_codes.py     # WMO code -> description
 ├── routers/             # weather, favorites, pages
 ├── templates/, static/  # frontend
 tests/
